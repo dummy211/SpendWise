@@ -1,6 +1,8 @@
 1. `python3 -m venv venv`: Creates a virtual environment
 2. `pip install -r requirements.txt`: Installs project dependencies 
 3. `python3 app.py`: Runs the Flask application !
+4. & ".\venv\Scripts\python.exe" app.py
+
 
 
 
@@ -32,3 +34,12 @@ Modify only the necessary files and preserve existing functionality.
 
 
 git commit -m"landing : added terms and conditions page and privace page and routes"
+
+
+3. re-designing here section of the landing page
+  [inserted image]
+
+  Replace only the existing hero section with the attached reference design. Recreate its headline, green badge, description, two CTA buttons, and expense dashboard preview. Match the colors, typography, spacing, and responsive layout. Preserve existing functionality and do not modify the header, footer, or other sections.
+
+
+  git commit message : feat: redesign hero section with expense dashboard preview
