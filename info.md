@@ -16,3 +16,19 @@ Update `@tempalets/base.html` footer:
 - Match the existing design and ensure mobile responsiveness.
 
 Modify only the footer and preserve all existing functionality.
+
+
+### add terms and conditions page and route(contetn) and for privacy also
+
+Update my Flask expense tracker project:
+
+1. Add Privacy Policy and Terms & Conditions pages with appropriate content.
+2. Make both footer links clickable and navigate to their respective pages.
+3. Add routes for both pages in `app.py`.
+4. Create `privacy_policy.html` and `terms_and_conditions.html` inside `templates/`, extending `base.html`.
+5. Match the existing website design and ensure mobile responsiveness.
+
+Modify only the necessary files and preserve existing functionality.
+
+
+git commit -m"landing : added terms and conditions page and privace page and routes"
