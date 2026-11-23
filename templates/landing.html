@@ -17,7 +17,9 @@
         </p>
         <div class="hero-actions">
             <a href="{{ url_for('register') }}" class="btn-primary"><span class="button-plus">+</span>Create free account</a>
-            <a href="#features" class="btn-ghost">See how it works</a>
+            <button type="button" class="btn-ghost" id="show-how-it-works" aria-haspopup="dialog">
+                See how it works
+            </button>
         </div>
         <div class="hero-visual">
             <div class="mock-card">
@@ -59,6 +61,16 @@
         </div>
     </div>
 </section>
+
+<dialog class="video-modal" id="how-it-works-modal" aria-labelledby="video-modal-title">
+    <div class="video-modal-panel">
+        <div class="video-modal-header">
+            <h2 id="video-modal-title">See how it works</h2>
+            <button type="button" class="video-modal-close" aria-label="Close video">&times;</button>
+        </div>
+        <div class="video-modal-frame"></div>
+    </div>
+</dialog>
 
 <section class="features" id="features">
     <div class="features-inner">

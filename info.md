@@ -43,3 +43,18 @@ git commit -m"landing : added terms and conditions page and privace page and rou
 
 
   git commit message : feat: redesign hero section with expense dashboard preview
+
+
+  4. adding feature to the landing page , `see how it works button`
+  
+   Implement a YouTube video modal for the "See how it works" button on my Spendly landing page.
+
+- Open a modal with an embedded YouTube video when clicked.
+- Use this video: https://www.youtube.com/watch?v=MP4F0ZcW_G0
+- Support closing via the close button, backdrop click, and Escape key.
+- Stop video playback completely when the modal closes by unmounting the iframe or resetting its source.
+- Make the modal responsive and match the existing website design.
+- Preserve all existing functionality and modify only the necessary files.
+
+
+ git message `feat: add YouTube video modal to See How It Works button`
