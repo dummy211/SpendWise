@@ -13,6 +13,10 @@ DATABASE = os.path.join(
 )
 
 
+class DuplicateEmailError(Exception):
+    """Raised when a user attempts to register an existing email address."""
+
+
 def get_db():
     if "db" not in g:
         database_path = current_app.config.get("DATABASE", DATABASE)
@@ -56,6 +60,26 @@ def init_db():
         """
     )
     db.commit()
+
+
+def create_user(name, email, password):
+    db = get_db()
+
+    try:
+        cursor = db.execute(
+            """
+            INSERT INTO users (name, email, password_hash)
+            VALUES (?, ?, ?)
+            """,
+            (name, email, generate_password_hash(password)),
+        )
+        db.commit()
+        return cursor.lastrowid
+    except sqlite3.IntegrityError as error:
+        db.rollback()
+        if "users.email" in str(error):
+            raise DuplicateEmailError from error
+        raise
 
 
 def seed_db():
