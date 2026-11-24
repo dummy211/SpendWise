@@ -2,7 +2,9 @@
 
 ## Project overview
 
-Spendly is a lightweight personal expense tracker built with Flask and SQLite.
+SlpendWise is a lightweight personal expense tracker built with Flask and SQLite.
+All monetary values use Indian Rupees (INR); use `₹` for display text and `INR` when an
+explicit currency code is needed. Do not use dollar signs or USD formatting.
 
 ---
 
