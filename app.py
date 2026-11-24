@@ -1,6 +1,10 @@
-from flask import Flask, redirect, render_template, request, url_for
+import os
+from urllib.parse import urlsplit
+
+from flask import Flask, redirect, render_template, request, session, url_for
 from database.db import (
     DuplicateEmailError,
+    authenticate_user,
     close_db,
     create_user,
     init_db,
@@ -8,6 +12,11 @@ from database.db import (
 )
 
 app = Flask(__name__)
+# Set FLASK_SECRET_KEY to a unique random value outside local development.
+app.config["SECRET_KEY"] = os.environ.get(
+    "FLASK_SECRET_KEY",
+    "dev-only-change-me",
+)
 
 app.teardown_appcontext(close_db)
 
@@ -27,6 +36,9 @@ def landing():
 
 @app.route("/register", methods=("GET", "POST"))
 def register():
+    if session.get("user_id") is not None:
+        return redirect(url_for("landing"))
+
     if request.method == "GET":
         return render_template("register.html")
 
@@ -63,9 +75,51 @@ def register():
     return redirect(url_for("login"))
 
 
-@app.route("/login")
+@app.route("/login", methods=("GET", "POST"))
 def login():
-    return render_template("login.html")
+    if session.get("user_id") is not None:
+        return redirect(url_for("landing"))
+
+    if request.method == "GET":
+        return render_template("login.html", next_url=request.args.get("next", ""))
+
+    submitted_email = request.form.get("email", "")
+    email = submitted_email.strip().lower()
+    password = request.form.get("password", "")
+    next_url = request.form.get("next", "")
+
+    if not email or not password.strip():
+        return render_template(
+            "login.html",
+            error="Email and password are required.",
+            email=submitted_email,
+            next_url=next_url,
+        )
+
+    user = authenticate_user(email, password)
+    if user is None:
+        return render_template(
+            "login.html",
+            error="Invalid email or password.",
+            email=submitted_email,
+            next_url=next_url,
+        )
+
+    session.clear()
+    session["user_id"] = user["id"]
+    session["user_name"] = user["name"]
+
+    target = urlsplit(next_url)
+    if (
+        not next_url.startswith("/")
+        or next_url.startswith("//")
+        or next_url.startswith("/\\")
+        or target.scheme
+        or target.netloc
+    ):
+        next_url = url_for("landing")
+
+    return redirect(next_url)
 
 
 @app.route("/privacy-policy")
@@ -84,7 +138,9 @@ def terms_and_conditions():
 
 @app.route("/logout")
 def logout():
-    return "Logout — coming in Step 3"
+    session.pop("user_id", None)
+    session.pop("user_name", None)
+    return redirect(url_for("landing"))
 
 
 @app.route("/profile")

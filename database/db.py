@@ -4,7 +4,7 @@ import sqlite3
 from datetime import date
 
 from flask import current_app, g
-from werkzeug.security import generate_password_hash
+from werkzeug.security import check_password_hash, generate_password_hash
 
 
 DATABASE = os.path.join(
@@ -80,6 +80,22 @@ def create_user(name, email, password):
         if "users.email" in str(error):
             raise DuplicateEmailError from error
         raise
+
+
+def authenticate_user(email, password):
+    user = get_db().execute(
+        """
+        SELECT id, name, password_hash
+        FROM users
+        WHERE email = ?
+        """,
+        (email,),
+    ).fetchone()
+
+    if user is None or not check_password_hash(user["password_hash"], password):
+        return None
+
+    return {"id": user["id"], "name": user["name"]}
 
 
 def seed_db():
