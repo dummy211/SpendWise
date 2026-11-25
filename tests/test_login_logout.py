@@ -67,7 +67,7 @@ def test_authenticated_users_are_redirected_from_auth_routes(
         response = getattr(client, method)(path, data=data)
 
     assert response.status_code == 302
-    assert response.headers["Location"].endswith("/")
+    assert response.headers["Location"].endswith("/dashboard")
     with client.session_transaction() as current_session:
         assert current_session["user_id"] == 1
         assert current_session["user_name"] == "Test User"
@@ -91,7 +91,7 @@ def test_login_accepts_normalized_email_and_sets_minimal_session(client):
     )
 
     assert response.status_code == 302
-    assert response.headers["Location"].endswith("/")
+    assert response.headers["Location"].endswith("/dashboard")
     with client.session_transaction() as current_session:
         assert current_session["user_name"] == "Test User"
         assert current_session["user_id"] == 1
@@ -183,7 +183,7 @@ def test_login_redirects_only_to_safe_relative_next_url(client, next_url):
     )
 
     assert safe_response.headers["Location"].endswith("/profile")
-    assert unsafe_response.headers["Location"].endswith("/")
+    assert unsafe_response.headers["Location"].endswith("/dashboard")
 
 
 def test_logout_clears_authentication_and_returns_to_guest_navigation(client):
