@@ -1,4 +1,7 @@
 import os
+from calendar import monthrange
+from datetime import date, timedelta
+from decimal import Decimal, ROUND_HALF_UP
 from urllib.parse import urlsplit
 
 from flask import Flask, redirect, render_template, request, session, url_for
@@ -25,6 +28,48 @@ with app.app_context():
     seed_db()
 
 
+@app.template_filter("inr")
+def format_inr(value, show_paise=False):
+    amount = Decimal(str(value or 0))
+    if show_paise and amount != amount.to_integral_value():
+        amount = amount.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+    else:
+        amount = amount.quantize(Decimal("1"), rounding=ROUND_HALF_UP)
+
+    whole, _, fraction = format(abs(amount), "f").partition(".")
+    trailing = whole[-3:]
+    leading = whole[:-3]
+    groups = []
+    while leading:
+        groups.insert(0, leading[-2:])
+        leading = leading[:-2]
+    formatted = ",".join(groups + [trailing])
+    if fraction:
+        formatted = f"{formatted}.{fraction}"
+
+    sign = "-" if amount < 0 else ""
+    return f"{sign}₹{formatted}"
+
+
+DEMO_CURRENT_EXPENSES = (
+    (780, "Food", "Groceries and fresh produce", 1),
+    (420, "Food", "Lunch thali at a neighborhood restaurant", 3),
+    (260, "Transport", "Metro card recharge", 4),
+    (2450, "Bills", "Monthly electricity bill", 6),
+    (525, "Health", "Pharmacy medicines", 8),
+    (890, "Entertainment", "Cinema tickets and snacks", 10),
+    (1750, "Shopping", "Household essentials from the local market", 12),
+    (310, "Other", "Stationery and household items", 14),
+)
+
+DEMO_PREVIOUS_EXPENSES = (
+    (1500, "Food", "Previous-month grocery run", 5),
+    (1200, "Transport", "Previous-month transit pass", 11),
+    (2000, "Bills", "Previous-month utility bill", 18),
+    (900, "Shopping", "Previous-month household supplies", 24),
+)
+
+
 # ------------------------------------------------------------------ #
 # Routes                                                              #
 # ------------------------------------------------------------------ #
@@ -37,7 +82,7 @@ def landing():
 @app.route("/register", methods=("GET", "POST"))
 def register():
     if session.get("user_id") is not None:
-        return redirect(url_for("landing"))
+        return redirect(url_for("dashboard"))
 
     if request.method == "GET":
         return render_template("register.html")
@@ -78,7 +123,7 @@ def register():
 @app.route("/login", methods=("GET", "POST"))
 def login():
     if session.get("user_id") is not None:
-        return redirect(url_for("landing"))
+        return redirect(url_for("dashboard"))
 
     if request.method == "GET":
         return render_template("login.html", next_url=request.args.get("next", ""))
@@ -117,9 +162,122 @@ def login():
         or target.scheme
         or target.netloc
     ):
-        next_url = url_for("landing")
+        next_url = url_for("dashboard")
 
     return redirect(next_url)
+
+
+@app.route("/dashboard")
+def dashboard():
+    user_id = session.get("user_id")
+    if user_id is None:
+        return redirect(url_for("login", next=url_for("dashboard")))
+
+    today = date.today()
+    previous_month = today.month - 1 or 12
+    previous_year = today.year - (1 if today.month == 1 else 0)
+    current_month_start = date(today.year, today.month, 1)
+    previous_month_start = date(previous_year, previous_month, 1)
+
+    demo_expenses = []
+    for index, (amount, category, description, days_ago) in enumerate(
+        DEMO_CURRENT_EXPENSES,
+        start=1,
+    ):
+        expense_date = max(
+            current_month_start,
+            today - timedelta(days=days_ago),
+        )
+        demo_expenses.append(
+            {
+                "id": index,
+                "amount": amount,
+                "category": category,
+                "description": description,
+                "date": expense_date,
+            }
+        )
+
+    previous_month_days = monthrange(previous_year, previous_month)[1]
+    for index, (amount, category, description, day) in enumerate(
+        DEMO_PREVIOUS_EXPENSES,
+        start=len(demo_expenses) + 1,
+    ):
+        expense_date = date(
+            previous_year,
+            previous_month,
+            min(day, previous_month_days),
+        )
+        demo_expenses.append(
+            {
+                "id": index,
+                "amount": amount,
+                "category": category,
+                "description": description,
+                "date": expense_date,
+            }
+        )
+
+    current_expenses = [
+        expense
+        for expense in demo_expenses
+        if expense["date"] >= current_month_start
+    ]
+    previous_expenses = [
+        expense
+        for expense in demo_expenses
+        if previous_month_start <= expense["date"] < current_month_start
+    ]
+    month_total = sum(expense["amount"] for expense in current_expenses)
+    previous_total = sum(expense["amount"] for expense in previous_expenses)
+    month_summary = {
+        "total": month_total,
+        "transaction_count": len(current_expenses),
+    }
+
+    spending_change = (
+        round((month_total - previous_total) / previous_total * 100, 1)
+        if previous_total
+        else None
+    )
+
+    category_amounts = {}
+    for expense in current_expenses:
+        category_amounts[expense["category"]] = (
+            category_amounts.get(expense["category"], 0) + expense["amount"]
+        )
+    category_totals = [
+        {"category": category, "total": amount}
+        for category, amount in category_amounts.items()
+    ]
+    category_totals.sort(
+        key=lambda category: (-category["total"], category["category"]),
+    )
+    for category in category_totals:
+        category["percentage"] = (
+            round(category["total"] / month_total * 100, 1)
+            if month_total
+            else 0
+        )
+
+    recent_expenses = sorted(
+        demo_expenses,
+        key=lambda expense: (expense["date"], expense["id"]),
+        reverse=True,
+    )[:10]
+    for expense in recent_expenses:
+        expense["date"] = expense["date"].isoformat()
+
+    return render_template(
+        "dashboard.html",
+        dashboard_error=False,
+        month_name=today.strftime("%B %Y"),
+        month_summary=month_summary,
+        spending_change=spending_change,
+        category_totals=category_totals,
+        recent_expenses=recent_expenses,
+        has_expenses=True,
+    )
 
 
 @app.route("/privacy-policy")

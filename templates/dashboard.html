@@ -1,0 +1,143 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard — SpendWise{% endblock %}
+
+{% block head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+{% endblock %}
+
+{% block content %}
+<section class="dashboard-section" aria-labelledby="dashboard-title">
+    <header class="dashboard-header">
+        <div>
+            <p class="dashboard-eyebrow">{{ month_name }}</p>
+            <h1 class="dashboard-title" id="dashboard-title">
+                Good day, {{ session.get('user_name') }}
+            </h1>
+            <p class="dashboard-subtitle">A clear view of where your money is going.</p>
+        </div>
+        <a class="btn-primary dashboard-add-button" href="{{ url_for('add_expense') }}">
+            Add expense
+        </a>
+    </header>
+
+    <p class="dashboard-demo-notice" role="note">
+        <strong>Sample data:</strong> these hardcoded example expenses are for preview only
+        and are not your saved transactions.
+    </p>
+
+    {% if dashboard_error %}
+    <section class="dashboard-message dashboard-error" role="alert">
+        <h2>We couldn’t load your spending</h2>
+        <p>Please try again. Your expense data has not been changed.</p>
+        <a href="{{ url_for('dashboard') }}">Retry</a>
+    </section>
+    {% elif not has_expenses %}
+    <section class="dashboard-message dashboard-empty" aria-labelledby="empty-title">
+        <span class="dashboard-empty-mark" aria-hidden="true">＋</span>
+        <h2 id="empty-title">Your spending story starts here</h2>
+        <p>Add your first expense to see monthly summaries and category insights.</p>
+        <a class="btn-primary" href="{{ url_for('add_expense') }}">Add your first expense</a>
+    </section>
+    {% else %}
+    <section class="dashboard-summary" aria-label="Expense summary for {{ month_name }}">
+        <article class="dashboard-stat mock-stat">
+            <span class="mock-label">Spent this month</span>
+            <strong>{{ month_summary.total|inr }}</strong>
+            <small>{{ month_name }}</small>
+        </article>
+        <article class="dashboard-stat mock-stat">
+            <span class="mock-label">Change vs last month</span>
+            {% if spending_change is none %}
+            <strong class="dashboard-stat-note">No data last month</strong>
+            {% elif spending_change > 0 %}
+            <strong class="trend-up">↑ {{ spending_change }}%</strong>
+            <small>More spending</small>
+            {% elif spending_change < 0 %}
+            <strong class="trend-good">↓ {{ spending_change|abs }}%</strong>
+            <small>Less spending</small>
+            {% else %}
+            <strong class="dashboard-stat-note">0%</strong>
+            <small>Same as last month</small>
+            {% endif %}
+        </article>
+        <article class="dashboard-stat mock-stat">
+            <span class="mock-label">Transactions</span>
+            <strong>{{ month_summary.transaction_count }}</strong>
+            <small>This month</small>
+        </article>
+        <article class="dashboard-stat mock-stat">
+            <span class="mock-label">Top category</span>
+            <strong class="dashboard-stat-category">
+                {{ category_totals[0].category if category_totals else "None yet" }}
+            </strong>
+            <small>This month</small>
+        </article>
+    </section>
+
+    <div class="dashboard-details">
+        <section class="dashboard-panel dashboard-categories" aria-labelledby="categories-title">
+            <div class="dashboard-panel-heading">
+                <div>
+                    <p class="dashboard-eyebrow">This month</p>
+                    <h2 id="categories-title">Spending by category</h2>
+                </div>
+            </div>
+            {% if category_totals %}
+            <ul class="dashboard-category-list">
+                {% for category in category_totals %}
+                <li class="dashboard-category">
+                    <div class="dashboard-category-heading">
+                        <span class="dashboard-category-name">{{ category.category }}</span>
+                        <span class="dashboard-category-value">
+                            {{ category.total|inr }} <span>({{ category.percentage }}%)</span>
+                        </span>
+                    </div>
+                    <div class="dashboard-category-track" aria-hidden="true">
+                        <div
+                            class="mock-bar{% if loop.index == 2 %} mock-bar-2{% elif loop.index == 3 %} mock-bar-3{% elif loop.index > 3 %} dashboard-category-bar-accent{% endif %}"
+                            style="width: {{ category.percentage }}%"
+                        ></div>
+                    </div>
+                </li>
+                {% endfor %}
+            </ul>
+            {% else %}
+            <p class="dashboard-inline-empty">No expenses recorded this month.</p>
+            {% endif %}
+        </section>
+
+        <section class="dashboard-panel dashboard-recent" aria-labelledby="recent-title">
+            <div class="dashboard-panel-heading">
+                <div>
+                    <p class="dashboard-eyebrow">Your latest activity</p>
+                    <h2 id="recent-title">Recent expenses</h2>
+                </div>
+            </div>
+            <div class="dashboard-table-wrap" role="region" aria-label="Recent expenses" tabindex="0">
+                <table class="dashboard-table">
+                    <thead>
+                        <tr>
+                            <th scope="col">Date</th>
+                            <th scope="col">Description</th>
+                            <th scope="col">Category</th>
+                            <th scope="col" class="dashboard-amount">Amount</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for expense in recent_expenses %}
+                        <tr>
+                            <td>{{ expense.date }}</td>
+                            <td>{{ expense.description or expense.category }}</td>
+                            <td><span class="dashboard-category-pill">{{ expense.category }}</span></td>
+                            <td class="dashboard-amount">{{ expense.amount|inr(true) }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </div>
+    {% endif %}
+</section>
+{% endblock %}
