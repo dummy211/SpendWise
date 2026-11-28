@@ -1,3 +1,4 @@
+import re
 import sqlite3
 
 import pytest
@@ -7,11 +8,21 @@ from app import app
 from database.db import init_db
 
 
+def _post_with_csrf(client, path, data=None):
+    page = client.get(path, follow_redirects=True)
+    match = re.search(rb'name="csrf_token" value="([^"]+)"', page.data)
+    assert match is not None
+    form_data = dict(data or {})
+    form_data["csrf_token"] = match.group(1).decode()
+    return client.post(path, data=form_data)
+
+
 @pytest.fixture
 def client(tmp_path):
     database_path = tmp_path / "test.db"
     app.config.update(
         DATABASE=str(database_path),
+        SECRET_KEY="registration-test-secret",
         TESTING=True,
     )
 
@@ -23,7 +34,8 @@ def client(tmp_path):
 
 
 def test_register_creates_hashed_user(client):
-    response = client.post(
+    response = _post_with_csrf(
+        client,
         "/register",
         data={
             "name": "  Test User  ",
@@ -66,7 +78,7 @@ def test_register_creates_hashed_user(client):
     ],
 )
 def test_register_rejects_invalid_input(client, data, message):
-    response = client.post("/register", data=data)
+    response = _post_with_csrf(client, "/register", data=data)
 
     assert response.status_code == 200
     assert message.encode() in response.data
@@ -78,9 +90,10 @@ def test_register_rejects_duplicate_email_case_insensitively(client):
         "email": "first@example.com",
         "password": "secure123",
     }
-    client.post("/register", data=valid_data)
+    _post_with_csrf(client, "/register", data=valid_data)
 
-    response = client.post(
+    response = _post_with_csrf(
+        client,
         "/register",
         data={
             "name": "Second User",
@@ -98,3 +111,19 @@ def test_register_rejects_duplicate_email_case_insensitively(client):
         connection.close()
 
     assert count == 1
+
+
+@pytest.mark.parametrize("token", ["", "invalid-token"])
+def test_registration_rejects_missing_or_invalid_csrf_token(client, token):
+    client.get("/register")
+    response = client.post(
+        "/register",
+        data={
+            "name": "Test User",
+            "email": "test@example.com",
+            "password": "secure123",
+            "csrf_token": token,
+        },
+    )
+
+    assert response.status_code == 400

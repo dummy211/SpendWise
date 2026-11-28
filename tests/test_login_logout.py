@@ -1,7 +1,18 @@
+import re
+
 import pytest
 
 from app import app
 from database.db import create_user, get_db, init_db
+
+
+def _post_with_csrf(client, path, data=None, token_page=None):
+    page = client.get(token_page or path, follow_redirects=True)
+    match = re.search(rb'name="csrf_token" value="([^"]+)"', page.data)
+    assert match is not None
+    form_data = dict(data or {})
+    form_data["csrf_token"] = match.group(1).decode()
+    return client.post(path, data=form_data)
 
 
 @pytest.fixture
@@ -26,6 +37,7 @@ def test_login_page_renders_form_with_generated_action(client):
 
     assert response.status_code == 200
     assert b'action="/login"' in response.data
+    assert b'name="csrf_token"' in response.data
     assert b'name="email"' in response.data
     assert b'name="password"' in response.data
 
@@ -55,7 +67,8 @@ def test_logged_out_users_can_access_login_and_registration(client):
 def test_authenticated_users_are_redirected_from_auth_routes(
     client, method, path, data
 ):
-    login_response = client.post(
+    login_response = _post_with_csrf(
+        client,
         "/login",
         data={"email": "test@example.com", "password": "secure123"},
     )
@@ -64,7 +77,7 @@ def test_authenticated_users_are_redirected_from_auth_routes(
     if data is None:
         response = getattr(client, method)(path)
     else:
-        response = getattr(client, method)(path, data=data)
+        response = _post_with_csrf(client, path, data=data)
 
     assert response.status_code == 302
     assert response.headers["Location"].endswith("/dashboard")
@@ -82,7 +95,8 @@ def test_authenticated_users_are_redirected_from_auth_routes(
 
 
 def test_login_accepts_normalized_email_and_sets_minimal_session(client):
-    response = client.post(
+    response = _post_with_csrf(
+        client,
         "/login",
         data={
             "email": "  TEST@EXAMPLE.COM ",
@@ -113,7 +127,7 @@ def test_login_accepts_normalized_email_and_sets_minimal_session(client):
 def test_login_uses_same_error_for_unknown_email_and_wrong_password(
     client, credentials
 ):
-    response = client.post("/login", data=credentials)
+    response = _post_with_csrf(client, "/login", data=credentials)
 
     assert response.status_code == 200
     assert b"Invalid email or password." in response.data
@@ -136,14 +150,15 @@ def test_login_uses_same_error_for_unknown_email_and_wrong_password(
     ],
 )
 def test_login_rejects_missing_or_blank_credentials(client, credentials):
-    response = client.post("/login", data=credentials)
+    response = _post_with_csrf(client, "/login", data=credentials)
 
     assert response.status_code == 200
     assert b"Email and password are required." in response.data
 
 
 def test_failed_login_preserves_email_without_authenticating(client):
-    response = client.post(
+    response = _post_with_csrf(
+        client,
         "/login",
         data={"email": "  TEST@example.com ", "password": "wrongpass"},
     )
@@ -165,7 +180,8 @@ def test_failed_login_preserves_email_without_authenticating(client):
     ],
 )
 def test_login_redirects_only_to_safe_relative_next_url(client, next_url):
-    safe_response = client.post(
+    safe_response = _post_with_csrf(
+        client,
         "/login",
         data={
             "email": "test@example.com",
@@ -173,7 +189,8 @@ def test_login_redirects_only_to_safe_relative_next_url(client, next_url):
             "next": "/profile",
         },
     )
-    unsafe_response = client.post(
+    unsafe_response = _post_with_csrf(
+        client,
         "/login",
         data={
             "email": "test@example.com",
@@ -187,14 +204,15 @@ def test_login_redirects_only_to_safe_relative_next_url(client, next_url):
 
 
 def test_logout_clears_authentication_and_returns_to_guest_navigation(client):
-    client.post(
+    _post_with_csrf(
+        client,
         "/login",
         data={"email": "test@example.com", "password": "secure123"},
     )
     with client.session_transaction() as current_session:
         current_session["unrelated"] = "preserved"
 
-    response = client.get("/logout")
+    response = _post_with_csrf(client, "/logout", token_page="/")
 
     assert response.status_code == 302
     assert response.headers["Location"].endswith("/")
@@ -210,10 +228,41 @@ def test_logout_clears_authentication_and_returns_to_guest_navigation(client):
 
 
 def test_logout_is_safe_when_user_is_not_logged_in(client):
-    response = client.get("/logout")
+    assert client.get("/logout").status_code == 405
+    response = _post_with_csrf(client, "/logout", token_page="/login")
 
     assert response.status_code == 302
     assert response.headers["Location"].endswith("/")
+
+
+@pytest.mark.parametrize("token", ["", "invalid-token"])
+def test_logout_rejects_missing_or_invalid_csrf_token(client, token):
+    client.get("/login")
+
+    response = client.post("/logout", data={"csrf_token": token})
+
+    assert response.status_code == 400
+
+
+def test_login_rejects_missing_or_invalid_csrf_token(client):
+    for token in ("", "invalid-token"):
+        response = client.post(
+            "/login",
+            data={
+                "email": "test@example.com",
+                "password": "secure123",
+                "csrf_token": token,
+            },
+        )
+        assert response.status_code == 400
+
+
+@pytest.mark.parametrize("secret_key", [None, "dev-only-change-me"])
+def test_requests_require_a_non_default_secret_key(client, monkeypatch, secret_key):
+    monkeypatch.setitem(app.config, "SECRET_KEY", secret_key)
+
+    with pytest.raises(RuntimeError, match="FLASK_SECRET_KEY"):
+        client.get("/")
 
 
 @pytest.mark.parametrize(

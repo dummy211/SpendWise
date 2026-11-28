@@ -1,3 +1,4 @@
+import re
 from datetime import date
 from urllib.parse import parse_qs, urlsplit
 
@@ -37,9 +38,16 @@ def _insert_expense(user_id, amount, category, expense_date, description):
 
 
 def _login(client, email="dashboard@example.com"):
+    login_page = client.get("/login")
+    match = re.search(rb'name="csrf_token" value="([^"]+)"', login_page.data)
+    assert match is not None
     return client.post(
         "/login",
-        data={"email": email, "password": "secure123"},
+        data={
+            "email": email,
+            "password": "secure123",
+            "csrf_token": match.group(1).decode(),
+        },
     )
 
 

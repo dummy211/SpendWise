@@ -13,7 +13,7 @@ This feature implements account authentication for SpendWise by converting the e
 
 - `GET /login` — render the login form — public
 - `POST /login` — validate credentials and start a logged-in session — public
-- `GET /logout` — clear the logged-in session and redirect — logged-in
+- `POST /logout` — clear the logged-in session and redirect — logged-in
 
 ## Database changes
 
@@ -38,7 +38,7 @@ Add a database helper in `database/db.py` that looks up a user by normalized ema
   - Display authentication errors supplied by the route.
 - **Modify:** `templates/base.html`
   - Show login and registration links for logged-out visitors.
-  - Show the user's name and a logout link for logged-in users.
+  - Show the user's name and a CSRF-protected logout form for logged-in users.
   - Use `url_for()` for every internal link.
 
 ## Files to change
@@ -67,6 +67,9 @@ Use Flask sessions and Werkzeug's existing `check_password_hash` support.
 - Normalize submitted emails by trimming and lowercasing them.
 - Use Flask's server-side session configuration to store only the authenticated user's ID and name.
 - Configure a stable Flask secret key suitable for development and tests.
+- Require a unique, stable `FLASK_SECRET_KEY` for requests; do not use a
+  public fallback.
+- Require a session-bound CSRF token for login, registration, and logout POSTs.
 - Failed login must not reveal whether the email or password was incorrect; use a generic invalid-credentials error.
 - Missing email or password must display a validation error.
 - Successful login must redirect to the landing page or the next protected destination when one is specified.
@@ -88,7 +91,9 @@ Use Flask sessions and Werkzeug's existing `check_password_hash` support.
 - [ ] Missing or blank email or password displays a validation error.
 - [ ] Failed login does not create a session or remove an existing session unexpectedly.
 - [ ] The login form action uses `url_for('login')`.
-- [ ] `GET /logout` clears the session and redirects to the landing page.
+- [ ] `GET /logout` is not state-changing; `POST /logout` clears authentication
+  state and redirects to the landing page.
+- [ ] Login, registration, and logout reject missing or invalid CSRF tokens.
 - [ ] After logout, navigation no longer shows authenticated-user controls.
 - [ ] Password verification uses the Werkzeug hash and never stores plaintext credentials.
 - [ ] All database reads use parameterized SQL.

@@ -108,6 +108,9 @@ a { color: inherit; text-decoration: none; }
     color: var(--paper) !important;
     padding: 0.45rem 1.1rem;
     border-radius: var(--radius-sm);
+    border: 0;
+    font: inherit;
+    cursor: pointer;
     transition: background 0.2s !important;
 }
 
@@ -702,16 +705,14 @@ a { color: inherit; text-decoration: none; }
     margin-top: 0.6rem;
 }
 
-.footer-links a,
-.footer-credit a {
+.footer-links a {
     color: var(--ink-faint);
     text-decoration: underline;
     text-underline-offset: 0.2em;
     cursor: pointer;
 }
 
-.footer-links a:hover,
-.footer-credit a:hover {
+.footer-links a:hover {
     color: var(--paper);
 }
 

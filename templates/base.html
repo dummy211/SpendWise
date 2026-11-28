@@ -22,7 +22,10 @@
                 {% if session.get('user_id') is not none and session.get('user_name') %}
                 <span>{{ session.get('user_name') }}</span>
                 <a class="nav-dashboard" href="{{ url_for('dashboard') }}">Dashboard</a>
-                <a href="{{ url_for('logout') }}" class="nav-cta">Sign out</a>
+                <form method="POST" action="{{ url_for('logout') }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" class="nav-cta">Sign out</button>
+                </form>
                 {% else %}
                 <a href="{{ url_for('login') }}">Sign in</a>
                 <a href="{{ url_for('register') }}" class="nav-cta">Get started</a>
@@ -46,7 +49,7 @@
             </nav>
             <p class="footer-credit">
                 Crafted with ♥ by
-                <a href="#" onclick="return false;">Manish</a>
+                <span>Manish</span>
                 | © 2026 All Rights Reserved
             </p>
         </div>

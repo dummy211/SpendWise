@@ -1,10 +1,12 @@
+import hmac
 import os
+import secrets
 from calendar import monthrange
 from datetime import date, timedelta
 from decimal import Decimal, ROUND_HALF_UP
 from urllib.parse import urlsplit
 
-from flask import Flask, redirect, render_template, request, session, url_for
+from flask import Flask, abort, redirect, render_template, request, session, url_for
 from database.db import (
     DuplicateEmailError,
     authenticate_user,
@@ -15,13 +17,46 @@ from database.db import (
 )
 
 app = Flask(__name__)
-# Set FLASK_SECRET_KEY to a unique random value outside local development.
-app.config["SECRET_KEY"] = os.environ.get(
-    "FLASK_SECRET_KEY",
-    "dev-only-change-me",
-)
+app.config["SECRET_KEY"] = os.environ.get("FLASK_SECRET_KEY")
 
 app.teardown_appcontext(close_db)
+
+
+def _csrf_token():
+    token = session.get("_csrf_token")
+    if token is None:
+        token = secrets.token_urlsafe(32)
+        session["_csrf_token"] = token
+    return token
+
+
+@app.context_processor
+def inject_csrf_token():
+    return {"csrf_token": _csrf_token}
+
+
+def _validate_secret_key():
+    secret_key = app.config.get("SECRET_KEY")
+    if not secret_key or secret_key == "dev-only-change-me":
+        raise RuntimeError(
+            "Set FLASK_SECRET_KEY to a unique random value before serving requests."
+        )
+
+
+@app.before_request
+def protect_state_changes():
+    _validate_secret_key()
+
+    if request.method == "POST":
+        expected_token = session.get("_csrf_token")
+        submitted_token = request.form.get("csrf_token", "")
+        if (
+            not isinstance(expected_token, str)
+            or not submitted_token
+            or not hmac.compare_digest(expected_token, submitted_token)
+        ):
+            abort(400, description="Invalid or missing CSRF token.")
+
 
 with app.app_context():
     init_db()
@@ -294,7 +329,7 @@ def terms_and_conditions():
 # Placeholder routes — students will implement these                  #
 # ------------------------------------------------------------------ #
 
-@app.route("/logout")
+@app.route("/logout", methods=("POST",))
 def logout():
     session.pop("user_id", None)
     session.pop("user_name", None)
@@ -322,4 +357,5 @@ def delete_expense(id):
 
 
 if __name__ == "__main__":
-    app.run(debug=True, port=5001)
+    _validate_secret_key()
+    app.run(port=5001)

@@ -1,5 +1,6 @@
 import calendar
 import os
+import secrets
 import sqlite3
 from datetime import date
 
@@ -101,10 +102,28 @@ def authenticate_user(email, password):
 def seed_db():
     db = get_db()
 
+    demo_email = "demo@spendly.com"
+    demo_user = db.execute(
+        "SELECT id, password_hash FROM users WHERE email = ?",
+        (demo_email,),
+    ).fetchone()
+    if demo_user is not None:
+        if check_password_hash(demo_user["password_hash"], "demo123"):
+            demo_password = os.environ.get("SPENDWISE_DEMO_PASSWORD")
+            if not demo_password:
+                demo_password = secrets.token_urlsafe(32)
+            db.execute(
+                "UPDATE users SET password_hash = ? WHERE id = ?",
+                (generate_password_hash(demo_password), demo_user["id"]),
+            )
+            db.commit()
+        return
+
     existing_user = db.execute(
         "SELECT id FROM users LIMIT 1"
     ).fetchone()
-    if existing_user is not None:
+    demo_password = os.environ.get("SPENDWISE_DEMO_PASSWORD")
+    if existing_user is not None or not demo_password:
         return
 
     today = date.today()
@@ -130,8 +149,8 @@ def seed_db():
             """,
             (
                 "Demo User",
-                "demo@spendly.com",
-                generate_password_hash("demo123"),
+                demo_email,
+                generate_password_hash(demo_password),
             ),
         )
         user_id = cursor.lastrowid

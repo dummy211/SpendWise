@@ -75,12 +75,14 @@ Nothing — this is the first step.
 
 ### C. `seed_db()`
 
-- Checks if `users` table already contains data
-    - If yes → return early (no duplication)
-- Inserts one demo user:
+- Does not seed a new demo account when users already exist
+- Rotates an existing demo account password if it still matches the legacy
+  public `demo123` credential
+- Seeds one demo user only when `SPENDWISE_DEMO_PASSWORD` is configured:
     - name: Demo User
     - email: demo@spendly.com
-    - password: demo123 (hashed using `werkzeug`)
+    - password: configured environment value (hashed using `werkzeug`)
+- Does not create a demo account with a built-in or public default password.
 - Inserts **8 sample expenses**:
     - All linked to demo user
     - Cover multiple categories

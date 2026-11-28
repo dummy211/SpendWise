@@ -9,8 +9,10 @@ expense functionality.
 
 ## Design
 
-- Add an explicit Flask secret key in `app.py` so signed session cookies work
-  consistently in development and tests.
+- Require a unique `FLASK_SECRET_KEY` in `app.py` so signed session cookies
+  cannot be forged with a public fallback.
+- Validate a session-bound CSRF token on state-changing POST requests and
+  include it in login, registration, and logout forms.
 - Keep database access out of routes:
   - Add a parameterized `authenticate_user(email, password)` helper in
     `database/db.py`.
@@ -34,7 +36,8 @@ expense functionality.
   - Keep logout safe and successful when no user is currently logged in.
 - Conditionalize `templates/base.html` navigation:
   - Guest navigation shows Sign in and Get started.
-  - Authenticated navigation shows the user's name and a logout link.
+  - Authenticated navigation shows the user's name and a CSRF-protected logout
+    form.
   - Require both session keys before rendering the authenticated state.
 - Update `templates/login.html`:
   - Generate the form action with `url_for('login')`.
@@ -56,7 +59,7 @@ expense functionality.
   - Preserve failed-login email and retain route-provided errors.
 - Modify `templates/base.html`
   - Render guest or authenticated navigation from session state.
-  - Use `url_for()` for login, registration, and logout links.
+  - Use `url_for()` for login, registration, and logout form actions.
 - Create `tests/test_login_logout.py`
   - Use the repository's existing temporary-database Flask test fixture pattern.
 
@@ -73,7 +76,10 @@ expense functionality.
   error.
 - Verify a failed login against an already authenticated session preserves the
   existing session keys.
-- Verify `GET /logout` removes both authentication keys and redirects to `/`.
+- Verify `GET /logout` cannot change session state and valid CSRF-protected
+  `POST /logout` removes authentication keys and redirects to `/`.
+- Verify login, registration, and logout reject requests without valid CSRF
+  tokens.
 - Verify logout from an already logged-out state remains safe and redirects.
 - Verify failed-login email is retained and password is not rendered back.
 - Verify existing registration tests still pass.
@@ -83,7 +89,8 @@ expense functionality.
 
 ## Verification
 
-- Login credentials work through the demo user and newly registered users.
+- Login credentials work through configured demo users and newly registered
+  users.
 - Password hashes are never exposed or stored in session values.
 - Unknown-email and wrong-password responses are indistinguishable.
 - Logout removes all authentication state and guest navigation returns.

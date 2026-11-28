@@ -73,6 +73,8 @@ source venv/bin/activate          # Windows: venv\Scripts\activate
 pip install -r requirements.txt
 
 # Run dev server (port 5001)
+# For local development, create a shell-scoped key (sessions reset between runs).
+$env:FLASK_SECRET_KEY = (python -c "import secrets; print(secrets.token_hex(32))")
 python app.py
 
 # Run all tests
@@ -97,7 +99,7 @@ pytest -s
 | `GET /` | Implemented — renders `landing.html` |
 | `GET /register` | Implemented — renders `register.html` |
 | `GET /login` | Implemented — renders `login.html` |
-| `GET /logout` | Stub — Step 3 |
+| `POST /logout` | Implemented — clears authentication state |
 | `GET /profile` | Stub — Step 4 |
 | `GET /expenses/add` | Stub — Step 7 |
 | `GET /expenses/<id>/edit` | Stub — Step 8 |
@@ -114,6 +116,7 @@ pytest -s
 - **Never put DB logic in route functions** — it belongs in `database/db.py`
 - **Never install new packages** mid-feature without flagging it — keep `requirements.txt` in sync
 - **Never use JS frameworks** — the frontend is intentionally vanilla
-- **`database/db.py` is currently empty** — do not assume helpers exist until the step that implements them
+- **Set `FLASK_SECRET_KEY`** to a unique, stable random value before serving requests; never use a public fallback
+- **Demo account seeding is opt-in** via `SPENDWISE_DEMO_PASSWORD`; do not introduce a known default password
 - **FK enforcement is manual** — SQLite foreign keys are off by default; `get_db()` must run `PRAGMA foreign_keys = ON` on every connection
 - The app runs on **port 5001**, not the Flask default 5000 — don't change this

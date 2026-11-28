@@ -22,7 +22,8 @@
 
 1. **Confirm implementation decisions**
    - Use `expense_tracker.db` and deterministic `YYYY-MM-DD` seed dates.
-   - Treat `password_hash` as the persisted field and hash `demo123`.
+   - Treat `password_hash` as the persisted field and hash only an
+     environment-configured demo password.
    - **Depends on:** none.
    - **Files:** plan/spec decision only.
 
@@ -44,9 +45,12 @@
    - **Files:** `database/db.py`.
 
 4. **Implement `seed_db()`**
-   - Return without writes when users already contain data.
-   - Hash `demo123` with `werkzeug.security.generate_password_hash`.
-   - Insert one demo user and eight linked expenses.
+   - Do not create a new demo user when any user already exists.
+   - Seed only when `SPENDWISE_DEMO_PASSWORD` is configured; hash its value
+     with `werkzeug.security.generate_password_hash`.
+   - Insert one demo user and eight linked expenses; never use a built-in
+     password.
+   - Rotate any legacy seeded `demo123` password on startup.
    - Use exactly the seven approved category values and valid `YYYY-MM-DD` dates.
    - Make the operation transactional and surface failures.
    - **Depends on:** task 3 and task 1’s seed-date decision.
@@ -85,9 +89,12 @@
 - Duplicate user email raises an SQLite integrity error.
 - Invalid expense `user_id` raises an SQLite foreign-key integrity error.
 - Repeated `init_db()` calls are safe and preserve data.
-- Startup or repeated `seed_db()` calls create exactly one demo user and eight
-  expenses, with no duplicates.
-- The stored demo password is a Werkzeug hash and validates against `demo123`.
+- Without `SPENDWISE_DEMO_PASSWORD`, repeated `seed_db()` calls do not create
+  a demo account.
+- With `SPENDWISE_DEMO_PASSWORD`, repeated `seed_db()` calls create exactly
+  one demo user and eight expenses, with no duplicates.
+- The stored demo password is a Werkzeug hash and validates against the
+  configured value; no legacy `demo123` hash remains usable.
 - Seeded expenses use only the fixed categories and `YYYY-MM-DD` dates.
 - Existing routes remain unchanged and the app continues using port 5001.
 
@@ -96,6 +103,6 @@
 - `database/db.py` implements `get_db()`, `init_db()`, and `seed_db()`.
 - `app.py` initializes and seeds the database inside an application context.
 - Schema constraints and foreign-key enforcement work as specified.
-- Seed data is hashed, linked, valid, deterministic, and repeat-safe.
+- Optional seed data is hashed, linked, valid, and repeat-safe.
 - Focused database tests pass, with the full available suite passing.
 - No dependencies or unrelated route behavior are changed.
